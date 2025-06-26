@@ -65,37 +65,6 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
   const [currentTime, setCurrentTime] = useState(0);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const audioUrl = file.url.startsWith('blob:') ? file.url : `/${file.url.replace(/^\//, '')}`;
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      const setAudioData = () => {
-        setDuration(audio.duration);
-        setCurrentTime(audio.currentTime);
-      };
-
-      const setAudioTime = () => {
-        const newTime = audio.currentTime;
-        setCurrentTime(newTime);
-        setProgress(newTime > 0 ? (newTime / audio.duration) * 100 : 0);
-      };
-
-      audio.addEventListener("loadeddata", setAudioData);
-      audio.addEventListener("timeupdate", setAudioTime);
-      audio.addEventListener("ended", () => onPlay(""));
-
-      return () => {
-        audio.removeEventListener("loadeddata", setAudioData);
-        audio.removeEventListener("timeupdate", setAudioTime);
-        if (file.url.startsWith('blob:')) {
-          URL.revokeObjectURL(file.url);
-        }
-      };
-    }
-  }, [file.url, onPlay]);
-
-  useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
         audioRef.current.play().catch(e => console.error("Play error:", e));
@@ -110,6 +79,15 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
       audioRef.current.volume = isMuted ? 0 : volume;
     }
   }, [volume, isMuted]);
+
+  useEffect(() => {
+    const url = file.url;
+    return () => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    }
+  }, [file.url])
 
   const handleProgressChange = (value: number[]) => {
     if (audioRef.current && isFinite(audioRef.current.duration)) {
@@ -131,9 +109,32 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
   };
+  
+  const handleTimeUpdate = () => {
+    if (!audioRef.current) return;
+    setCurrentTime(audioRef.current.currentTime);
+    setProgress(
+      audioRef.current.duration > 0
+        ? (audioRef.current.currentTime / audioRef.current.duration) * 100
+        : 0
+    );
+  };
+  
+  const handleLoadedMetadata = () => {
+    if (!audioRef.current) return;
+    setDuration(audioRef.current.duration);
+  };
 
   return (
     <div className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+      <audio
+        ref={audioRef}
+        src={file.url}
+        onLoadedMetadata={handleLoadedMetadata}
+        onTimeUpdate={handleTimeUpdate}
+        onEnded={() => onPlay("")}
+        preload="metadata"
+      />
       <Image
         src={file.cover}
         alt={file.title}
@@ -158,7 +159,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
               onValueChange={handleProgressChange}
               className="w-full"
             />
-            <span className="text-xs font-mono w-10 text-muted-foreground">{formatTime(duration || 0)}</span>
+            <span className="text-xs font-mono w-10 text-muted-foreground">{formatTime(duration)}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button size="icon" variant="ghost" onClick={() => setIsMuted(!isMuted)}>
