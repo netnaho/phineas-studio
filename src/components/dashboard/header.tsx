@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,7 @@ export function Header() {
   const handleLogout = async () => {
     try {
       await signOutUser();
-      router.push('/signin');
+      router.push("/signin");
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -34,7 +34,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <HarmonyHubLogo className="h-8 w-8 text-primary" />
           <h1 className="font-headline text-xl font-bold tracking-tighter">
-            Harmony Hub
+            Phineas Studio
           </h1>
         </div>
         {user && (
@@ -42,15 +42,22 @@ export function Header() {
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="h-9 w-9">
-                  <AvatarImage src={user.avatar} alt={user.displayName || "User Avatar"} />
-                  <AvatarFallback>{user.displayName?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
+                  <AvatarImage
+                    src={user.avatar}
+                    alt={user.displayName || "User Avatar"}
+                  />
+                  <AvatarFallback>
+                    {user.displayName?.charAt(0).toUpperCase() || "U"}
+                  </AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.displayName}</p>
+                  <p className="text-sm font-medium leading-none">
+                    {user.displayName}
+                  </p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user.email}
                   </p>
@@ -60,7 +67,9 @@ export function Header() {
               <DropdownMenuItem disabled>Profile</DropdownMenuItem>
               <DropdownMenuItem disabled>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>Log out</DropdownMenuItem>
+              <DropdownMenuItem onClick={handleLogout}>
+                Log out
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
