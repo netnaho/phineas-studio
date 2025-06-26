@@ -12,8 +12,9 @@ import { Slider } from "@/components/ui/slider";
 import { Mic, Pause, Play, Upload, Volume2, VolumeX } from "lucide-react";
 import React, { useState, useRef, useEffect, type FC } from "react";
 import Image from "next/image";
+import { UploadAudioDialog } from "./upload-audio-dialog";
 
-const audioFiles = [
+const initialAudioFiles = [
   {
     title: "Echoes of the Valley - Practice",
     uploader: "Alex",
@@ -40,8 +41,17 @@ const audioFiles = [
   },
 ];
 
+interface AudioFile {
+    title: string;
+    uploader: string;
+    duration: string;
+    url: string;
+    cover: string;
+    hint: string;
+}
+
 interface AudioPlayerProps {
-  file: typeof audioFiles[0];
+  file: AudioFile;
   isPlaying: boolean;
   onPlay: (url: string) => void;
 }
@@ -56,7 +66,8 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const audio = new Audio(file.url);
+      const audioUrl = file.url.startsWith('blob:') ? file.url : `/${file.url.replace(/^\//, '')}`;
+      const audio = new Audio(audioUrl);
       audioRef.current = audio;
 
       const setAudioData = () => {
@@ -77,6 +88,9 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
       return () => {
         audio.removeEventListener("loadeddata", setAudioData);
         audio.removeEventListener("timeupdate", setAudioTime);
+        if (file.url.startsWith('blob:')) {
+          URL.revokeObjectURL(file.url);
+        }
       };
     }
   }, [file.url, onPlay]);
@@ -98,7 +112,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
   }, [volume, isMuted]);
 
   const handleProgressChange = (value: number[]) => {
-    if (audioRef.current) {
+    if (audioRef.current && isFinite(audioRef.current.duration)) {
       const newTime = (value[0] / 100) * audioRef.current.duration;
       audioRef.current.currentTime = newTime;
       setProgress(value[0]);
@@ -112,6 +126,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
   };
 
   const formatTime = (time: number) => {
+    if (!isFinite(time) || isNaN(time)) return '0:00';
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
@@ -158,7 +173,20 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
 };
 
 export function AudioPanel() {
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>(initialAudioFiles);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string>("");
+
+  const handleUpload = (title: string, file: File) => {
+    const newAudioFile: AudioFile = {
+      title,
+      uploader: 'User',
+      duration: '0:00',
+      url: URL.createObjectURL(file),
+      cover: "https://placehold.co/100x100.png",
+      hint: "new upload"
+    };
+    setAudioFiles(prevFiles => [...prevFiles, newAudioFile]);
+  };
 
   return (
     <Card>
@@ -170,10 +198,12 @@ export function AudioPanel() {
               </div>
             <CardTitle className="font-headline">Audio Recordings</CardTitle>
           </div>
-          <Button>
-            <Upload className="mr-2 h-4 w-4" />
-            Upload
-          </Button>
+          <UploadAudioDialog onUpload={handleUpload}>
+            <Button>
+              <Upload className="mr-2 h-4 w-4" />
+              Upload
+            </Button>
+          </UploadAudioDialog>
         </div>
         <CardDescription>
           Listen to practice sessions and harmony parts.

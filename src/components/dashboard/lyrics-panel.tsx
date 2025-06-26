@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Accordion,
   AccordionContent,
@@ -13,8 +15,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Music, Plus } from "lucide-react";
+import { useState } from "react";
+import { NewSongDialog } from "./new-song-dialog";
 
-const lyricsData = [
+interface Song {
+  title: string;
+  lyrics: string;
+}
+
+const initialLyricsData: Song[] = [
   {
     title: "Echoes of the Valley",
     lyrics: `(Verse 1)
@@ -60,6 +69,13 @@ Promises we're bound to keep.`,
 ];
 
 export function LyricsPanel() {
+  const [lyricsData, setLyricsData] = useState<Song[]>(initialLyricsData);
+  
+  const handleAddSong = (title: string, lyrics: string) => {
+    const newSong: Song = { title, lyrics };
+    setLyricsData(prevSongs => [newSong, ...prevSongs]);
+  };
+
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -70,10 +86,12 @@ export function LyricsPanel() {
                 </div>
                 <CardTitle className="font-headline">Lyrics Repository</CardTitle>
             </div>
-            <Button size="sm" variant="outline">
-                <Plus className="mr-2 h-4 w-4" />
-                New Song
-            </Button>
+            <NewSongDialog onAddSong={handleAddSong}>
+                <Button size="sm" variant="outline">
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Song
+                </Button>
+            </NewSongDialog>
         </div>
         <CardDescription>
           Browse and manage lyrics for your group's songs.
