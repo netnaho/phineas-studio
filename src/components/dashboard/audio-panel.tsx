@@ -80,15 +80,6 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
     }
   }, [volume, isMuted]);
 
-  useEffect(() => {
-    const url = file.url;
-    return () => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
-    }
-  }, [file.url])
-
   const handleProgressChange = (value: number[]) => {
     if (audioRef.current && isFinite(audioRef.current.duration)) {
       const newTime = (value[0] / 100) * audioRef.current.duration;
@@ -176,6 +167,20 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
 export function AudioPanel() {
   const [audioFiles, setAudioFiles] = useState<AudioFile[]>(initialAudioFiles);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string>("");
+
+  const audioFilesRef = useRef(audioFiles);
+  audioFilesRef.current = audioFiles;
+
+  useEffect(() => {
+    // This cleanup function will run when the component unmounts.
+    return () => {
+      audioFilesRef.current.forEach(file => {
+        if (file.url.startsWith('blob:')) {
+          URL.revokeObjectURL(file.url);
+        }
+      });
+    };
+  }, []); // Empty dependency array ensures this runs only once on unmount.
 
   const handleUpload = (title: string, file: File) => {
     const newAudioFile: AudioFile = {
