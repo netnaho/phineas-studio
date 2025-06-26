@@ -9,46 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
-import { Mic, Pause, Play, Upload, Volume2, VolumeX } from "lucide-react";
+import { Mic, Pause, Play, Upload, Volume2, VolumeX, Loader2 } from "lucide-react";
 import React, { useState, useRef, useEffect, type FC } from "react";
 import Image from "next/image";
 import { UploadAudioDialog } from "./upload-audio-dialog";
-
-const initialAudioFiles = [
-  {
-    title: "Echoes of the Valley - Practice",
-    uploader: "Alex",
-    duration: "3:45",
-    url: "/audio/placeholder-1.mp3",
-    cover: "https://placehold.co/100x100.png",
-    hint: "concert performance"
-  },
-  {
-    title: "City Lights - Harmony Part",
-    uploader: "Sam",
-    duration: "2:15",
-    url: "/audio/placeholder-2.mp3",
-    cover: "https://placehold.co/100x100.png",
-    hint: "studio recording"
-  },
-  {
-    title: "Ocean's Lullaby - Full Mix",
-    uploader: "Casey",
-    duration: "4:30",
-    url: "/audio/placeholder-3.mp3",
-    cover: "https://placehold.co/100x100.png",
-    hint: "acoustic guitar"
-  },
-];
-
-interface AudioFile {
-    title: string;
-    uploader: string;
-    duration: string;
-    url: string;
-    cover: string;
-    hint: string;
-}
+import { getAudioFiles, uploadAudioFile } from "@/services/audioService";
+import type { AudioFile } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 interface AudioPlayerProps {
   file: AudioFile;
@@ -150,7 +117,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
               onValueChange={handleProgressChange}
               className="w-full"
             />
-            <span className="text-xs font-mono w-10 text-muted-foreground">{formatTime(duration)}</span>
+            <span className="text-xs font-mono w-10 text-muted-foreground">{formatTime(duration) || file.duration}</span>
           </div>
           <div className="flex items-center gap-1">
             <Button size="icon" variant="ghost" onClick={() => setIsMuted(!isMuted)}>
@@ -165,33 +132,48 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ file, isPlaying, onPlay }) => {
 };
 
 export function AudioPanel() {
-  const [audioFiles, setAudioFiles] = useState<AudioFile[]>(initialAudioFiles);
+  const [audioFiles, setAudioFiles] = useState<AudioFile[]>([]);
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string>("");
-
-  const audioFilesRef = useRef(audioFiles);
-  audioFilesRef.current = audioFiles;
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // This cleanup function will run when the component unmounts.
-    return () => {
-      audioFilesRef.current.forEach(file => {
-        if (file.url.startsWith('blob:')) {
-          URL.revokeObjectURL(file.url);
+    const fetchAudioFiles = async () => {
+        try {
+            const files = await getAudioFiles();
+            setAudioFiles(files);
+        } catch (error) {
+            console.error("Error fetching audio files:", error);
+            toast({
+                title: "Error",
+                description: "Could not fetch audio files.",
+                variant: "destructive"
+            });
+        } finally {
+            setIsLoading(false);
         }
-      });
     };
-  }, []); // Empty dependency array ensures this runs only once on unmount.
+    fetchAudioFiles();
+  }, [toast]);
 
-  const handleUpload = (title: string, file: File) => {
-    const newAudioFile: AudioFile = {
-      title,
-      uploader: 'User',
-      duration: '0:00',
-      url: URL.createObjectURL(file),
-      cover: "https://placehold.co/100x100.png",
-      hint: "new upload"
-    };
-    setAudioFiles(prevFiles => [...prevFiles, newAudioFile]);
+  const handleUpload = async (title: string, file: File) => {
+    try {
+      await uploadAudioFile(file, title, 'User');
+      // Re-fetch to update the list
+      const files = await getAudioFiles();
+      setAudioFiles(files);
+      toast({
+          title: "Upload successful",
+          description: `"${title}" has been added.`,
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+          title: "Upload failed",
+          description: "Could not upload the audio file.",
+          variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -216,16 +198,22 @@ export function AudioPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-2">
-          {audioFiles.map((file) => (
-            <AudioPlayer
-              key={file.url}
-              file={file}
-              isPlaying={currentlyPlaying === file.url}
-              onPlay={setCurrentlyPlaying}
-            />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {audioFiles.map((file) => (
+              <AudioPlayer
+                key={file.id}
+                file={file}
+                isPlaying={currentlyPlaying === file.url}
+                onPlay={setCurrentlyPlaying}
+              />
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

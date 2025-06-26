@@ -14,66 +14,55 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Music, Plus } from "lucide-react";
-import { useState } from "react";
+import { Music, Plus, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { NewSongDialog } from "./new-song-dialog";
-
-interface Song {
-  title: string;
-  lyrics: string;
-}
-
-const initialLyricsData: Song[] = [
-  {
-    title: "Echoes of the Valley",
-    lyrics: `(Verse 1)
-In the quiet of the morning light,
-A gentle mist, a silver white.
-The valley wakes, a sleepy sigh,
-Beneath the vast and endless sky.
-
-(Chorus)
-Oh, echoes of the valley call,
-A silent song that touches all.
-Through whispering trees and flowing streams,
-Living out our wildest dreams.`,
-  },
-  {
-    title: "City of a Thousand Lights",
-    lyrics: `(Verse 1)
-Neon glows in the pouring rain,
-A symphony of joy and pain.
-Streetlights paint the night with gold,
-A story waiting to be told.
-
-(Chorus)
-City of a thousand lights,
-Burning through the darkest nights.
-We're just a flicker in the gleam,
-Caught inside a vibrant dream.`,
-  },
-  {
-    title: "Ocean's Lullaby",
-    lyrics: `(Verse 1)
-The waves crash in, a steady beat,
-Salty air, so bittersweet.
-The sun dips low, a fiery kiss,
-Filling us with tranquil bliss.
-
-(Chorus)
-The ocean's lullaby so deep,
-Secrets that the waters keep.
-Rocking us to gentle sleep,
-Promises we're bound to keep.`,
-  },
-];
+import { getSongs, addSong } from "@/services/lyricsService";
+import type { Song } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 export function LyricsPanel() {
-  const [lyricsData, setLyricsData] = useState<Song[]>(initialLyricsData);
+  const [lyricsData, setLyricsData] = useState<Song[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchSongs = async () => {
+      try {
+        const songs = await getSongs();
+        setLyricsData(songs);
+      } catch (error) {
+        console.error("Error fetching songs:", error);
+        toast({
+            title: "Error",
+            description: "Could not fetch song lyrics.",
+            variant: "destructive"
+        })
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSongs();
+  }, [toast]);
   
-  const handleAddSong = (title: string, lyrics: string) => {
-    const newSong: Song = { title, lyrics };
-    setLyricsData(prevSongs => [newSong, ...prevSongs]);
+  const handleAddSong = async (title: string, lyrics: string) => {
+    try {
+        await addSong(title, lyrics);
+        // Optimistically update UI or re-fetch
+        const songs = await getSongs();
+        setLyricsData(songs);
+        toast({
+            title: "Song Added",
+            description: `"${title}" has been added to the repository.`,
+        });
+    } catch (error) {
+        console.error("Error adding song:", error);
+        toast({
+            title: "Error",
+            description: "Could not add the new song.",
+            variant: "destructive"
+        })
+    }
   };
 
   return (
@@ -98,16 +87,22 @@ export function LyricsPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
-        <Accordion type="single" collapsible className="w-full">
-          {lyricsData.map((song, index) => (
-            <AccordionItem value={`item-${index}`} key={index}>
-              <AccordionTrigger>{song.title}</AccordionTrigger>
-              <AccordionContent>
-                <pre className="whitespace-pre-wrap font-sans text-sm">{song.lyrics}</pre>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <Accordion type="single" collapsible className="w-full">
+            {lyricsData.map((song) => (
+              <AccordionItem value={song.id} key={song.id}>
+                <AccordionTrigger>{song.title}</AccordionTrigger>
+                <AccordionContent>
+                  <pre className="whitespace-pre-wrap font-sans text-sm">{song.lyrics}</pre>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        )}
       </CardContent>
     </Card>
   );

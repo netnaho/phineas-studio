@@ -14,10 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useState, type FC } from "react";
+import { Loader2 } from "lucide-react";
+import { useState, type FC, useTransition } from "react";
 
 interface NewSongDialogProps {
-  onAddSong: (title: string, lyrics: string) => void;
+  onAddSong: (title: string, lyrics: string) => Promise<void>;
   children: React.ReactNode;
 }
 
@@ -25,6 +26,7 @@ export const NewSongDialog: FC<NewSongDialogProps> = ({ onAddSong, children }) =
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [lyrics, setLyrics] = useState("");
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const handleAddSong = () => {
@@ -36,13 +38,11 @@ export const NewSongDialog: FC<NewSongDialogProps> = ({ onAddSong, children }) =
       });
       return;
     }
-    onAddSong(title, lyrics);
-    setIsOpen(false);
-    setTitle("");
-    setLyrics("");
-    toast({
-        title: "Song Added",
-        description: `"${title}" has been added to the repository.`,
+    startTransition(async () => {
+        await onAddSong(title, lyrics);
+        setIsOpen(false);
+        setTitle("");
+        setLyrics("");
     });
   };
 
@@ -67,6 +67,7 @@ export const NewSongDialog: FC<NewSongDialogProps> = ({ onAddSong, children }) =
               onChange={(e) => setTitle(e.target.value)}
               className="col-span-3"
               placeholder="Song title"
+              disabled={isPending}
             />
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
@@ -79,11 +80,15 @@ export const NewSongDialog: FC<NewSongDialogProps> = ({ onAddSong, children }) =
               onChange={(e) => setLyrics(e.target.value)}
               className="col-span-3 min-h-[200px]"
               placeholder="(Verse 1)..."
+              disabled={isPending}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleAddSong}>Add Song</Button>
+          <Button onClick={handleAddSong} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Add Song
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

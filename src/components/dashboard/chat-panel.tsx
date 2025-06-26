@@ -13,51 +13,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Loader2 } from "lucide-react";
 import React, { useState, useRef, useEffect, FormEvent } from "react";
+import { getMessages, addMessage } from "@/services/chatService";
+import type { Message, ChatMessageUser } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
-interface Message {
-  id: number;
-  user: {
-    name: string;
-    avatar: string;
-  };
-  text: string;
-  isCurrentUser: boolean;
-}
 
-const initialMessages: Message[] = [
-  {
-    id: 1,
-    user: { name: "Alex", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d" },
-    text: "Hey everyone! How's practice for 'Echoes' going?",
-    isCurrentUser: false,
-  },
-  {
-    id: 2,
-    user: { name: "User", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d" },
-    text: "Going well! I just uploaded my part for the harmony.",
-    isCurrentUser: true,
-  },
-  {
-    id: 3,
-    user: { name: "Sam", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704e" },
-    text: "Awesome, I'll give it a listen. I'm struggling a bit with the bridge.",
-    isCurrentUser: false,
-  },
-  {
-    id: 4,
-    user: { name: "Casey", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704f" },
-    text: "Maybe we can try it together during our next session?",
-    isCurrentUser: false,
-  },
-];
+// Simplification: In a real app, user data would come from an auth context.
+const currentUser: ChatMessageUser = {
+    name: "User",
+    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d"
+};
 
 export function ChatPanel() {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
+  useEffect(() => {
+    const unsubscribe = getMessages((messages) => {
+      setMessages(messages);
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
+  
   useEffect(() => {
     if (scrollAreaRef.current) {
         const scrollViewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
@@ -68,17 +53,25 @@ export function ChatPanel() {
   }, [messages]);
   
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (newMessage.trim() === "") return;
-    const msg: Message = {
-      id: messages.length + 1,
-      user: { name: "User", avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d" },
-      text: newMessage,
-      isCurrentUser: true,
-    };
-    setMessages([...messages, msg]);
+    
+    const textToSend = newMessage;
     setNewMessage("");
+
+    try {
+      await addMessage(textToSend, currentUser);
+    } catch(error) {
+      console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Could not send message.",
+        variant: "destructive"
+      });
+      // Restore message on failure
+      setNewMessage(textToSend);
+    }
   };
 
   return (
@@ -93,43 +86,49 @@ export function ChatPanel() {
         <CardDescription>Discuss ideas and coordinate with the group.</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4 overflow-hidden">
-        <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
-          <div className="space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex items-start gap-3",
-                  msg.isCurrentUser && "justify-end"
-                )}
-              >
-                {!msg.isCurrentUser && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={msg.user.avatar} />
-                    <AvatarFallback>{msg.user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                )}
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
+            <div className="space-y-4">
+              {messages.map((msg) => (
                 <div
+                  key={msg.id}
                   className={cn(
-                    "max-w-xs rounded-lg px-3 py-2 text-sm",
-                    msg.isCurrentUser
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                    "flex items-start gap-3",
+                    msg.isCurrentUser && "justify-end"
                   )}
                 >
-                  {!msg.isCurrentUser && <p className="font-semibold text-xs pb-1">{msg.user.name}</p>}
-                  <p>{msg.text}</p>
+                  {!msg.isCurrentUser && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={msg.user.avatar} />
+                      <AvatarFallback>{msg.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div
+                    className={cn(
+                      "max-w-xs rounded-lg px-3 py-2 text-sm",
+                      msg.isCurrentUser
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted"
+                    )}
+                  >
+                    {!msg.isCurrentUser && <p className="font-semibold text-xs pb-1">{msg.user.name}</p>}
+                    <p>{msg.text}</p>
+                  </div>
+                  {msg.isCurrentUser && (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={msg.user.avatar} />
+                      <AvatarFallback>U</AvatarFallback>
+                    </Avatar>
+                  )}
                 </div>
-                {msg.isCurrentUser && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={msg.user.avatar} />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
+              ))}
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
       <CardFooter>
         <form onSubmit={handleSubmit} className="flex w-full items-center space-x-2">

@@ -13,10 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { useState, type FC } from "react";
+import { Loader2 } from "lucide-react";
+import { useState, type FC, useTransition } from "react";
 
 interface UploadAudioDialogProps {
-  onUpload: (title: string, file: File) => void;
+  onUpload: (title: string, file: File) => Promise<void>;
   children: React.ReactNode;
 }
 
@@ -24,6 +25,7 @@ export const UploadAudioDialog: FC<UploadAudioDialogProps> = ({ onUpload, childr
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
   const handleUpload = () => {
@@ -35,15 +37,24 @@ export const UploadAudioDialog: FC<UploadAudioDialogProps> = ({ onUpload, childr
       });
       return;
     }
-    onUpload(title, file);
-    setIsOpen(false);
-    setTitle("");
-    setFile(null);
-     toast({
-        title: "Upload successful",
-        description: `"${title}" has been added.`,
-      });
+    startTransition(async () => {
+      await onUpload(title, file);
+      setIsOpen(false);
+      setTitle("");
+      setFile(null);
+    });
   };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0] || null;
+    setFile(selectedFile);
+    // Auto-fill title if empty
+    if(selectedFile && !title) {
+        // remove extension
+        const name = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || selectedFile.name;
+        setTitle(name);
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -66,6 +77,7 @@ export const UploadAudioDialog: FC<UploadAudioDialogProps> = ({ onUpload, childr
               onChange={(e) => setTitle(e.target.value)}
               className="col-span-3"
               placeholder="E.g. Echoes of the Valley - Part 1"
+              disabled={isPending}
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -76,13 +88,17 @@ export const UploadAudioDialog: FC<UploadAudioDialogProps> = ({ onUpload, childr
               id="audio-file"
               type="file"
               accept="audio/*"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
+              onChange={handleFileChange}
               className="col-span-3"
+              disabled={isPending}
             />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleUpload}>Upload</Button>
+          <Button onClick={handleUpload} disabled={isPending || !file}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Upload
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
