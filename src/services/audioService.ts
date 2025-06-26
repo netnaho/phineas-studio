@@ -2,6 +2,7 @@ import { db, storage } from '@/lib/firebase';
 import { collection, getDocs, addDoc, serverTimestamp, query, orderBy } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import type { AudioFile } from '@/types';
+import type { User } from '@/context/AuthContext';
 
 export async function getAudioFiles(): Promise<AudioFile[]> {
     const audioFilesCollection = collection(db, 'audioFiles');
@@ -11,18 +12,15 @@ export async function getAudioFiles(): Promise<AudioFile[]> {
     return audioFilesList;
 }
 
-export async function uploadAudioFile(file: File, title: string, uploader: string): Promise<AudioFile> {
+export async function uploadAudioFile(file: File, title: string, user: User): Promise<AudioFile> {
     if (!file) throw new Error("No file provided for upload.");
 
-    const storageRef = ref(storage, `audio/${Date.now()}_${file.name}`);
+    const storageRef = ref(storage, `audio/${user.uid}/${Date.now()}_${file.name}`);
     
-    // Upload the file
     const uploadResult = await uploadBytes(storageRef, file);
     
-    // Get the download URL
     const url = await getDownloadURL(uploadResult.ref);
 
-    // Get audio duration
     const duration = await new Promise<number>((resolve, reject) => {
         const audio = document.createElement('audio');
         audio.onloadedmetadata = () => {
@@ -42,7 +40,8 @@ export async function uploadAudioFile(file: File, title: string, uploader: strin
 
     const newAudioFileData = {
         title,
-        uploader,
+        uploader: user.displayName,
+        uploaderId: user.uid,
         url,
         duration: formatDuration(duration),
         cover: "https://placehold.co/100x100.png", // placeholder

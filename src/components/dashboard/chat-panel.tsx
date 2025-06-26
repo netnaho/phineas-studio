@@ -16,15 +16,9 @@ import { cn } from "@/lib/utils";
 import { MessageSquare, Send, Loader2 } from "lucide-react";
 import React, { useState, useRef, useEffect, FormEvent } from "react";
 import { getMessages, addMessage } from "@/services/chatService";
-import type { Message, ChatMessageUser } from "@/types";
+import type { Message } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-
-
-// Simplification: In a real app, user data would come from an auth context.
-const currentUser: ChatMessageUser = {
-    name: "User",
-    avatar: "https://i.pravatar.cc/150?u=a042581f4e29026704d"
-};
+import { useAuth } from "@/hooks/use-auth";
 
 export function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -32,16 +26,22 @@ export function ChatPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) return;
+    
     const unsubscribe = getMessages((messages) => {
-      setMessages(messages);
+      const updatedMessages = messages.map(msg => ({
+        ...msg,
+        isCurrentUser: msg.user.uid === user.uid
+      }));
+      setMessages(updatedMessages);
       setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
-  }, []);
+  }, [user]);
   
   useEffect(() => {
     if (scrollAreaRef.current) {
@@ -55,13 +55,17 @@ export function ChatPanel() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (newMessage.trim() === "") return;
+    if (newMessage.trim() === "" || !user) return;
     
     const textToSend = newMessage;
     setNewMessage("");
 
     try {
-      await addMessage(textToSend, currentUser);
+      await addMessage(textToSend, {
+        uid: user.uid,
+        name: user.displayName || "Anonymous",
+        avatar: user.avatar,
+      });
     } catch(error) {
       console.error("Error sending message:", error);
       toast({
@@ -69,7 +73,6 @@ export function ChatPanel() {
         description: "Could not send message.",
         variant: "destructive"
       });
-      // Restore message on failure
       setNewMessage(textToSend);
     }
   };
@@ -121,7 +124,7 @@ export function ChatPanel() {
                   {msg.isCurrentUser && (
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={msg.user.avatar} />
-                      <AvatarFallback>U</AvatarFallback>
+                      <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                   )}
                 </div>
@@ -137,8 +140,9 @@ export function ChatPanel() {
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
             autoComplete="off"
+            disabled={!user}
           />
-          <Button type="submit" size="icon">
+          <Button type="submit" size="icon" disabled={!user || newMessage.trim() === ""}>
             <Send className="h-4 w-4" />
           </Button>
         </form>

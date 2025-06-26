@@ -16,6 +16,7 @@ import { UploadAudioDialog } from "./upload-audio-dialog";
 import { getAudioFiles, uploadAudioFile } from "@/services/audioService";
 import type { AudioFile } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 interface AudioPlayerProps {
   file: AudioFile;
@@ -136,6 +137,7 @@ export function AudioPanel() {
   const [currentlyPlaying, setCurrentlyPlaying] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchAudioFiles = async () => {
@@ -157,9 +159,16 @@ export function AudioPanel() {
   }, [toast]);
 
   const handleUpload = async (title: string, file: File) => {
+    if (!user) {
+        toast({
+            title: "Authentication Error",
+            description: "You must be signed in to upload files.",
+            variant: "destructive",
+        });
+        return;
+    }
     try {
-      await uploadAudioFile(file, title, 'User');
-      // Re-fetch to update the list
+      await uploadAudioFile(file, title, user);
       const files = await getAudioFiles();
       setAudioFiles(files);
       toast({
@@ -187,7 +196,7 @@ export function AudioPanel() {
             <CardTitle className="font-headline">Audio Recordings</CardTitle>
           </div>
           <UploadAudioDialog onUpload={handleUpload}>
-            <Button>
+            <Button disabled={!user}>
               <Upload className="mr-2 h-4 w-4" />
               Upload
             </Button>

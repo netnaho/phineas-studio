@@ -2,7 +2,7 @@ import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, onSnapshot, query, orderBy } from 'firebase/firestore';
 import type { Message, ChatMessageUser } from '@/types';
 
-export function getMessages(callback: (messages: Message[]) => void) {
+export function getMessages(callback: (messages: Omit<Message, 'isCurrentUser'>[]) => void) {
   const messagesCollection = collection(db, 'messages');
   const q = query(messagesCollection, orderBy('timestamp', 'asc'));
 
@@ -13,9 +13,7 @@ export function getMessages(callback: (messages: Message[]) => void) {
         id: doc.id,
         ...data,
         timestamp: data.timestamp?.toDate(),
-        // This is a simplification. In a real app, you'd have user auth.
-        isCurrentUser: data.user.name === 'User'
-      } as Message;
+      } as Omit<Message, 'isCurrentUser'>;
     });
     callback(messages);
   });

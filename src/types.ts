@@ -5,6 +5,7 @@ export interface Song {
 }
 
 export interface ChatMessageUser {
+  uid: string;
   name: string;
   avatar: string;
 }
@@ -20,7 +21,8 @@ export interface Message {
 export interface AudioFile {
   id: string;
   title: string;
-  uploader: string;
+  uploader: string | null;
+  uploaderId: string;
   duration: string;
   url: string;
   cover: string;

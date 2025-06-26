@@ -48,9 +48,7 @@ export const UploadAudioDialog: FC<UploadAudioDialogProps> = ({ onUpload, childr
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0] || null;
     setFile(selectedFile);
-    // Auto-fill title if empty
     if(selectedFile && !title) {
-        // remove extension
         const name = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || selectedFile.name;
         setTitle(name);
     }
